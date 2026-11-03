@@ -4,6 +4,7 @@
 // ============================================================================
 #include <stdio.h>
 #include <string.h>
+#include <locale.h>
 #include "arcade.h"
 
 struct Jogador listaJogadores[MAX];
@@ -160,6 +161,7 @@ void moduloJogadores() {
 // ============================================================================
 int main() {
     int opcaoPrincipal;
+    setlocale(LC_CTYPE, "Portuguese");
     do {
         exibirCabecalho();
         printf("SELECIONE A PERSPECTIVA DO SISTEMA:\n");
