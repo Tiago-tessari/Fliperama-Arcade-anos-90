@@ -14,6 +14,7 @@ struct Jogador {
     char nome[50];
     char iniciais[4];      // 3 letras do placar, ex: "TIA"
     int fichasAcumuladas;
+    float gastoTotal;      // total gasto em R$ nas partidas
     int ativo;             // 1 = Ativo, 0 = Removido
 };
 
@@ -33,6 +34,8 @@ struct Partida {
     int idMaquina;
     int pontuacao;
     int fichasGastas;
+    float valorGasto;      // custo da partida em R$
+    char data[11];         // formato dd/mm/aaaa
     int ativa;             // 1 = Valida, 0 = Estornada
 };
 
