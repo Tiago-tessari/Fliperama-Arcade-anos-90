@@ -24,6 +24,7 @@ int buscarPartidaPorId(int id) {
 // Cruza Jogador + Maquina: desconta as fichas e grava a pontuacao
 void registrarPartida() {
     int idJ, idM, posJ, posM, custo;
+    float valor;
     if (totalPartidas >= MAX) {
         printf("\n[ERRO] Limite de partidas atingido!\n");
         return;
@@ -53,9 +54,14 @@ void registrarPartida() {
     historicoPartidas[totalPartidas].idMaquina = idM;
     printf("Pontuacao feita na partida: ");
     scanf("%d", &historicoPartidas[totalPartidas].pontuacao);
+    printf("Data da partida (dd/mm/aaaa): ");
+    scanf("%10s", historicoPartidas[totalPartidas].data);
+    valor = custo * catalogoMaquinas[posM].precoFicha;
     historicoPartidas[totalPartidas].fichasGastas = custo;
+    historicoPartidas[totalPartidas].valorGasto = valor;
     historicoPartidas[totalPartidas].ativa = 1;
     listaJogadores[posJ].fichasAcumuladas -= custo;
+    listaJogadores[posJ].gastoTotal += valor;
     printf("\nPartida registrada! ID = %d\n", historicoPartidas[totalPartidas].idPartida);
     totalPartidas++;
 }
@@ -68,10 +74,11 @@ void listarOuBuscarPartidas() {
     if (modo == 1) {
         for (i = 0; i < totalPartidas; i++) {
             if (historicoPartidas[i].ativa == 1) {
-                printf("Partida %d | Jogador %d | Maquina %d | %d pts | %d ficha(s)\n",
+                printf("Partida %d | Jogador %d | Maquina %d | %d pts | %d ficha(s) | R$ %.2f | %s\n",
                        historicoPartidas[i].idPartida, historicoPartidas[i].idJogador,
                        historicoPartidas[i].idMaquina, historicoPartidas[i].pontuacao,
-                       historicoPartidas[i].fichasGastas);
+                       historicoPartidas[i].fichasGastas, historicoPartidas[i].valorGasto,
+                       historicoPartidas[i].data);
                 achou = 1;
             }
         }
@@ -80,9 +87,10 @@ void listarOuBuscarPartidas() {
         scanf("%d", &id);
         for (i = 0; i < totalPartidas; i++) {
             if (historicoPartidas[i].ativa == 1 && historicoPartidas[i].idJogador == id) {
-                printf("Partida %d | Maquina %d | %d pts | %d ficha(s)\n",
+                printf("Partida %d | Maquina %d | %d pts | %d ficha(s) | R$ %.2f | %s\n",
                        historicoPartidas[i].idPartida, historicoPartidas[i].idMaquina,
-                       historicoPartidas[i].pontuacao, historicoPartidas[i].fichasGastas);
+                       historicoPartidas[i].pontuacao, historicoPartidas[i].fichasGastas,
+                       historicoPartidas[i].valorGasto, historicoPartidas[i].data);
                 achou = 1;
             }
         }
@@ -122,6 +130,7 @@ void estornarPartida() {
     posJ = buscarJogadorPorId(historicoPartidas[pos].idJogador);
     if (posJ != -1) {
         listaJogadores[posJ].fichasAcumuladas += historicoPartidas[pos].fichasGastas;
+        listaJogadores[posJ].gastoTotal -= historicoPartidas[pos].valorGasto;
     }
     historicoPartidas[pos].ativa = 0;
     printf("\nPartida estornada e fichas devolvidas.\n");
