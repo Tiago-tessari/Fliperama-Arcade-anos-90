@@ -1,6 +1,6 @@
 // ============================================================================
 // tiago.c - Modulo 1: JOGADORES (fichas) + funcao main (menu principal)
-// Autor: Tiago Tessari (RGM: ________)
+// Autor: Tiago Tessari (RGM: 39969321)
 // ============================================================================
 #include <stdio.h>
 #include <string.h>
