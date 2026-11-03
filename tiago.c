@@ -40,6 +40,7 @@ void cadastrarJogador() {
     scanf("%3s", listaJogadores[totalJogadores].iniciais);
     printf("Fichas iniciais: ");
     scanf("%d", &listaJogadores[totalJogadores].fichasAcumuladas);
+    listaJogadores[totalJogadores].gastoTotal = 0;
     listaJogadores[totalJogadores].ativo = 1;
     printf("\nJogador cadastrado! ID = %d\n", listaJogadores[totalJogadores].idJogador);
     totalJogadores++;
@@ -53,9 +54,10 @@ void listarOuBuscarJogador() {
     if (modo == 1) {
         for (i = 0; i < totalJogadores; i++) {
             if (listaJogadores[i].ativo == 1) {
-                printf("ID %d | %s (%s) | Fichas: %d\n",
+                printf("ID %d | %s (%s) | Fichas: %d | Gasto: R$ %.2f\n",
                        listaJogadores[i].idJogador, listaJogadores[i].nome,
-                       listaJogadores[i].iniciais, listaJogadores[i].fichasAcumuladas);
+                       listaJogadores[i].iniciais, listaJogadores[i].fichasAcumuladas,
+                       listaJogadores[i].gastoTotal);
                 achou = 1;
             }
         }
@@ -67,9 +69,10 @@ void listarOuBuscarJogador() {
         if (pos == -1) {
             printf("\n[ERRO] Jogador nao encontrado.\n");
         } else {
-            printf("ID %d | %s (%s) | Fichas: %d\n",
+            printf("ID %d | %s (%s) | Fichas: %d | Gasto: R$ %.2f\n",
                    listaJogadores[pos].idJogador, listaJogadores[pos].nome,
-                   listaJogadores[pos].iniciais, listaJogadores[pos].fichasAcumuladas);
+                   listaJogadores[pos].iniciais, listaJogadores[pos].fichasAcumuladas,
+                   listaJogadores[pos].gastoTotal);
         }
     } else {
         printf("\n[ERRO] Opcao invalida!\n");
