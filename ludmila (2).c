@@ -1,6 +1,6 @@
 // ============================================================================
 // ludmila.c - Modulo 2: MAQUINAS / JOGOS DO FLIPERAMA
-// Autor: Ludmila (Sobrenome e RGM: ________)
+// Autor: Ludmila Ladislau
 // ============================================================================
 #include <stdio.h>
 #include <string.h>
