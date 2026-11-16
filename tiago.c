@@ -1,11 +1,10 @@
 // ============================================================================
-// tiago.c - Modulo 1: JOGADORES (fichas) + funcoes de apoio + main (menu)
+// tiago.c - Modulo 1: JOGADORES (fichas) + leitura do teclado + main (menu)
 // Autor: Tiago Tessari (RGM: 39969321)
 // ============================================================================
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 #include <locale.h>
 #include "arcade.h"
 
@@ -13,113 +12,67 @@ struct Jogador listaJogadores[MAX];
 int totalJogadores = 0;
 
 // ============================================================================
-// FUNCOES DE APOIO (usadas por todos os modulos)
+// LEITURA DO TECLADO (usada por todos os modulos)
+// Se o usuario digitar letra onde pede numero, o scanf falha: limpamos a
+// linha errada e perguntamos de novo (evita loop infinito).
 // ============================================================================
-// Limpa o console (cls no Windows, clear no Linux/Mac)
-void limparTela(void) {
-#ifdef _WIN32
-    int r = system("cls");
-#else
-    int r = system("clear");
-#endif
-    (void)r;
-}
-
-// Para a tela ate o usuario apertar ENTER (senao o limparTela apaga o resultado)
-void pausar(void) {
-    char buf[100];
-    printf("\nPressione ENTER para continuar...");
-    if (fgets(buf, sizeof(buf), stdin) == NULL) exit(0);
-}
-
-// Le uma linha inteira e converte para int. Repete ate o usuario digitar certo.
 int lerInt(const char *msg) {
-    char buf[100];
-    int v;
-    while (1) {
+    int valor, ok, c;
+    do {
         printf("%s", msg);
-        if (fgets(buf, sizeof(buf), stdin) == NULL) exit(0);
-        if (sscanf(buf, "%d", &v) == 1) return v;
-        printf("[ERRO] Digite um numero inteiro valido.\n");
-    }
+        ok = scanf("%d", &valor);
+        if (ok != 1) {
+            while ((c = getchar()) != '\n' && c != EOF) { }
+            if (c == EOF) exit(0);
+            printf("[ERRO] Digite um numero inteiro valido.\n");
+        }
+    } while (ok != 1);
+    return valor;
 }
 
-// Le um numero decimal. Troca virgula por ponto para aceitar "2,50" ou "2.50".
 float lerFloat(const char *msg) {
-    char buf[100];
-    float v;
-    int i;
-    while (1) {
+    float valor;
+    int ok, c;
+    do {
         printf("%s", msg);
-        if (fgets(buf, sizeof(buf), stdin) == NULL) exit(0);
-        for (i = 0; buf[i] != '\0'; i++) {
-            if (buf[i] == ',') buf[i] = '.';
+        ok = scanf("%f", &valor);
+        if (ok != 1) {
+            while ((c = getchar()) != '\n' && c != EOF) { }
+            if (c == EOF) exit(0);
+            printf("[ERRO] Digite um numero valido (use ponto: 0.50).\n");
         }
-        if (sscanf(buf, "%f", &v) == 1) return v;
-        printf("[ERRO] Digite um numero valido.\n");
-    }
-}
-
-// Le um texto com espacos usando fgets. O ';' vira espaco porque e o
-// separador do CSV (se ficasse, quebraria as colunas do arquivo).
-void lerTexto(const char *msg, char *dest, int tam) {
-    char buf[200];
-    int i;
-    while (1) {
-        printf("%s", msg);
-        if (fgets(buf, sizeof(buf), stdin) == NULL) exit(0);
-        buf[strcspn(buf, "\r\n")] = '\0';           // tira o ENTER do final
-        for (i = 0; buf[i] != '\0'; i++) {
-            if (buf[i] == ';') buf[i] = ' ';
-        }
-        if (strlen(buf) > 0) break;
-        printf("[ERRO] O texto nao pode ficar vazio.\n");
-    }
-    strncpy(dest, buf, tam - 1);
-    dest[tam - 1] = '\0';
-}
-
-// Busca textual: devolve 1 se "busca" aparece dentro de "texto" (strstr).
-// Converte tudo para minusculo antes, para "mario" achar "Super Mario".
-int contemTexto(const char *texto, const char *busca) {
-    char a[200], b[200];
-    int i;
-    for (i = 0; texto[i] != '\0' && i < 199; i++) a[i] = (char)tolower((unsigned char)texto[i]);
-    a[i] = '\0';
-    for (i = 0; busca[i] != '\0' && i < 199; i++) b[i] = (char)tolower((unsigned char)busca[i]);
-    b[i] = '\0';
-    return strstr(a, b) != NULL;
+    } while (ok != 1);
+    return valor;
 }
 
 // ============================================================================
-// MODULO DE JOGADORES
+// ARQUIVO CSV DOS JOGADORES
+// Formato de cada linha:  id;nome;iniciais;fichas;ativo
 // ============================================================================
-// ---------------------------- ARQUIVO CSV ----------------------------------
 
-// Formato de cada linha: id;nome;iniciais;fichas;gasto;ativo
-// A 1a linha do arquivo e o cabecalho (pulada na leitura).
+// Abre o arquivo para LEITURA ("r") e copia cada linha para o vetor.
 void carregarJogadoresCSV(void) {
-    FILE *arq = fopen("jogadores.csv", "r");
-    char cabecalho[200];
+    FILE *arq = fopen("jogadores.csv", "r");     // FILE* aponta para o arquivo aberto
+    char cabecalho[100];
     totalJogadores = 0;
-    if (arq == NULL) return;                         // primeira execucao: sem arquivo
-    if (fgets(cabecalho, sizeof(cabecalho), arq) == NULL) { fclose(arq); return; }
-    // %49[^;] = le texto ate encontrar ';' (aceita nomes com espaco)
+    if (arq == NULL) return;                     // primeira execucao: arquivo ainda nao existe
+    fgets(cabecalho, sizeof(cabecalho), arq);    // pula a 1a linha (titulos das colunas)
+    // Mascaras do fscanf:  %d = inteiro | %49[^;] = texto ate encontrar ';' | %3[^;] = ate 3 letras
+    // O retorno do fscanf e quantos campos ele leu: se for 5, a linha estava completa.
     while (totalJogadores < MAX &&
-           fscanf(arq, "%d;%49[^;];%3[^;];%d;%f;%d\n",
+           fscanf(arq, "%d;%49[^;];%3[^;];%d;%d\n",
                   &listaJogadores[totalJogadores].idJogador,
                   listaJogadores[totalJogadores].nome,
                   listaJogadores[totalJogadores].iniciais,
                   &listaJogadores[totalJogadores].fichasAcumuladas,
-                  &listaJogadores[totalJogadores].gastoTotal,
-                  &listaJogadores[totalJogadores].ativo) == 6) {
+                  &listaJogadores[totalJogadores].ativo) == 5) {
         totalJogadores++;
     }
     fclose(arq);
 }
 
-// "w" apaga o arquivo antigo e o for reescreve o vetor atualizado inteiro.
-// Serve para cadastro, edicao e remocao.
+// Abre para ESCRITA ("w"): apaga o arquivo velho e o for regrava o vetor inteiro.
+// Serve para salvar apos cadastrar, editar ou remover.
 void salvarJogadoresCSV(void) {
     int i;
     FILE *arq = fopen("jogadores.csv", "w");
@@ -127,18 +80,21 @@ void salvarJogadoresCSV(void) {
         printf("[ERRO] Nao foi possivel gravar jogadores.csv\n");
         return;
     }
-    fprintf(arq, "id;nome;iniciais;fichas;gasto;ativo\n");
+    fprintf(arq, "id;nome;iniciais;fichas;ativo\n");
     for (i = 0; i < totalJogadores; i++) {
-        fprintf(arq, "%d;%s;%s;%d;%.2f;%d\n",
+        fprintf(arq, "%d;%s;%s;%d;%d\n",
                 listaJogadores[i].idJogador, listaJogadores[i].nome,
                 listaJogadores[i].iniciais, listaJogadores[i].fichasAcumuladas,
-                listaJogadores[i].gastoTotal, listaJogadores[i].ativo);
+                listaJogadores[i].ativo);
     }
     fclose(arq);
 }
 
-// ------------------------------ BUSCAS -------------------------------------
+// ============================================================================
+// MODULO DE JOGADORES
+// ============================================================================
 
+// Retorna a posicao do jogador no vetor (ou -1 se nao existir / foi removido)
 int buscarJogadorPorId(int id) {
     int i;
     for (i = 0; i < totalJogadores; i++) {
@@ -149,43 +105,25 @@ int buscarJogadorPorId(int id) {
     return -1;
 }
 
-// Novo ID = maior ID ja usado + 1 (nao repete ID mesmo apos remocoes)
-static int proximoIdJogador(void) {
-    int i, maior = 0;
-    for (i = 0; i < totalJogadores; i++) {
-        if (listaJogadores[i].idJogador > maior) maior = listaJogadores[i].idJogador;
-    }
-    return maior + 1;
-}
-
 static void imprimirJogador(int pos) {
-    printf("ID %d | %s (%s) | Fichas: %d | Gasto: R$ %.2f\n",
+    printf("ID %d | %s (%s) | Fichas: %d\n",
            listaJogadores[pos].idJogador, listaJogadores[pos].nome,
-           listaJogadores[pos].iniciais, listaJogadores[pos].fichasAcumuladas,
-           listaJogadores[pos].gastoTotal);
+           listaJogadores[pos].iniciais, listaJogadores[pos].fichasAcumuladas);
 }
-
-// ------------------------------- CRUD --------------------------------------
 
 void cadastrarJogador(void) {
-    int pos, i, fichas;
+    int pos;
     if (totalJogadores >= MAX) {
         printf("\n[ERRO] Limite de jogadores atingido!\n");
         return;
     }
     pos = totalJogadores;
-    listaJogadores[pos].idJogador = proximoIdJogador();
-    lerTexto("\nNome do jogador: ", listaJogadores[pos].nome, 50);
-    lerTexto("Iniciais para o placar (3 letras): ", listaJogadores[pos].iniciais, 4);
-    for (i = 0; listaJogadores[pos].iniciais[i] != '\0'; i++) {
-        listaJogadores[pos].iniciais[i] = (char)toupper((unsigned char)listaJogadores[pos].iniciais[i]);
-    }
-    do {
-        fichas = lerInt("Fichas iniciais: ");
-        if (fichas < 0) printf("[ERRO] Nao pode ser negativo.\n");
-    } while (fichas < 0);
-    listaJogadores[pos].fichasAcumuladas = fichas;
-    listaJogadores[pos].gastoTotal = 0;
+    listaJogadores[pos].idJogador = pos + 1;
+    printf("\nNome do jogador (sem espacos, use _): ");
+    scanf("%49s", listaJogadores[pos].nome);
+    printf("Iniciais para o placar (3 letras): ");
+    scanf("%3s", listaJogadores[pos].iniciais);
+    listaJogadores[pos].fichasAcumuladas = lerInt("Fichas iniciais: ");
     listaJogadores[pos].ativo = 1;
     totalJogadores++;
     salvarJogadoresCSV();
@@ -212,9 +150,11 @@ void listarOuBuscarJogador(void) {
         if (pos == -1) printf("\n[ERRO] Jogador nao encontrado.\n");
         else imprimirJogador(pos);
     } else if (modo == 3) {
-        lerTexto("Parte do nome: ", termo, 50);
+        printf("Parte do nome (respeite maiusculas): ");
+        scanf("%49s", termo);
         for (i = 0; i < totalJogadores; i++) {
-            if (listaJogadores[i].ativo == 1 && contemTexto(listaJogadores[i].nome, termo)) {
+            // strstr procura "termo" dentro do nome; devolve NULL se nao achar
+            if (listaJogadores[i].ativo == 1 && strstr(listaJogadores[i].nome, termo) != NULL) {
                 imprimirJogador(i);
                 achou = 1;
             }
@@ -226,25 +166,21 @@ void listarOuBuscarJogador(void) {
 }
 
 void editarJogador(void) {
-    int id, pos, fichasExtras;
+    int id, pos;
     id = lerInt("\nID do jogador a editar: ");
     pos = buscarJogadorPorId(id);
     if (pos == -1) {
         printf("\n[ERRO] Jogador nao encontrado.\n");
         return;
     }
-    lerTexto("Novo nome: ", listaJogadores[pos].nome, 50);
-    do {
-        fichasExtras = lerInt("Fichas a adicionar (compra no caixa): ");
-        if (fichasExtras < 0) printf("[ERRO] Nao pode ser negativo.\n");
-    } while (fichasExtras < 0);
-    listaJogadores[pos].fichasAcumuladas += fichasExtras;
+    printf("Novo nome (sem espacos, use _): ");
+    scanf("%49s", listaJogadores[pos].nome);
+    listaJogadores[pos].fichasAcumuladas += lerInt("Fichas a adicionar (compra no caixa): ");
     salvarJogadoresCSV();
     printf("\nJogador atualizado! Fichas agora: %d\n", listaJogadores[pos].fichasAcumuladas);
 }
 
-// Remocao logica: ativo = 0. O registro continua no CSV para nao
-// quebrar o historico de partidas que usam esse ID.
+// Remocao logica: ativo = 0 (o registro fica no CSV para nao quebrar as partidas antigas)
 void removerJogador(void) {
     int id, pos;
     id = lerInt("\nID do jogador a remover: ");
@@ -257,8 +193,6 @@ void removerJogador(void) {
     salvarJogadoresCSV();
     printf("\nJogador removido.\n");
 }
-
-// ----------------------------- RELATORIOS ----------------------------------
 
 void relatorioJogadorMaisFichas(void) {
     int i, melhor = -1;
@@ -277,47 +211,15 @@ void relatorioJogadorMaisFichas(void) {
     }
 }
 
-// Ranking por gasto total usando BUBBLE SORT (maior gasto primeiro).
-// Ordena um vetor de POSICOES, assim o vetor original nao muda de ordem.
-void rankingJogadoresPorGasto(void) {
-    int indices[MAX], n = 0, i, j, aux;
-    for (i = 0; i < totalJogadores; i++) {
-        if (listaJogadores[i].ativo == 1) indices[n++] = i;
-    }
-    if (n == 0) {
-        printf("\nNenhum jogador cadastrado.\n");
-        return;
-    }
-    for (i = 0; i < n - 1; i++) {
-        for (j = 0; j < n - 1 - i; j++) {
-            if (listaJogadores[indices[j]].gastoTotal < listaJogadores[indices[j + 1]].gastoTotal) {
-                aux = indices[j];
-                indices[j] = indices[j + 1];
-                indices[j + 1] = aux;
-            }
-        }
-    }
-    printf("\n=== RANKING: QUEM MAIS GASTOU NO FLIPERAMA ===\n");
-    for (i = 0; i < n; i++) {
-        printf("%2do | %-20s (%s) | R$ %.2f\n", i + 1,
-               listaJogadores[indices[i]].nome, listaJogadores[indices[i]].iniciais,
-               listaJogadores[indices[i]].gastoTotal);
-    }
-}
-
-// ------------------------------- MENU --------------------------------------
-
 void moduloJogadores(void) {
     int opcao;
     do {
-        limparTela();
-        printf("--- [MODULO 1: JOGADORES (Tiago)] ---\n");
+        printf("\n--- [MODULO 1: JOGADORES (Tiago)] ---\n");
         printf("1. Cadastrar Novo Jogador\n");
         printf("2. Listar / Buscar Jogadores\n");
         printf("3. Editar Jogador / Comprar Fichas\n");
         printf("4. Remover Jogador\n");
         printf("5. [RELATORIO] Jogador com Mais Fichas\n");
-        printf("6. [RELATORIO] Ranking de Gastos (Bubble Sort)\n");
         printf("0. Voltar ao Menu Principal\n");
         opcao = lerInt("Escolha uma acao: ");
         switch (opcao) {
@@ -326,34 +228,31 @@ void moduloJogadores(void) {
             case 3: editarJogador(); break;
             case 4: removerJogador(); break;
             case 5: relatorioJogadorMaisFichas(); break;
-            case 6: rankingJogadoresPorGasto(); break;
-            case 0: break;
+            case 0: printf("\nRetornando ao menu principal...\n"); break;
             default: printf("\n[ERRO] Opcao invalida no Modulo de Jogadores!\n");
         }
-        if (opcao != 0) pausar();
     } while (opcao != 0);
 }
 
 // ============================================================================
 // MAIN - Despachante de menus
 // ============================================================================
-static void exibirCabecalho(void) {
-    printf("======================================================\n");
+void exibirCabecalho(void) {
+    printf("\n======================================================\n");
     printf("   ARCADE PALACE - FICHAS E HIGH SCORES (ANOS 90)     \n");
     printf("======================================================\n");
 }
 
 int main(void) {
     int opcaoPrincipal;
-    setlocale(LC_CTYPE, "Portuguese");   // so LC_CTYPE: nao troca o ponto decimal do CSV
+    setlocale(LC_CTYPE, "Portuguese");
 
-    // Carrega os 3 arquivos .csv para a memoria (RAM) ao abrir o programa
+    // Ao abrir o programa, carrega os 3 arquivos .csv para a memoria (vetores)
     carregarJogadoresCSV();
     carregarMaquinasCSV();
     carregarPartidasCSV();
 
     do {
-        limparTela();
         exibirCabecalho();
         printf("SELECIONE A PERSPECTIVA DO SISTEMA:\n");
         printf("1. Modulo de Jogadores / Fichas (Tiago)\n");
@@ -367,9 +266,7 @@ int main(void) {
             case 2: moduloMaquinas(); break;
             case 3: moduloPartidas(); break;
             case 0: printf("\nEncerrando o Arcade Palace... GAME OVER!\n"); break;
-            default:
-                printf("\n[ALERTA] Opcao invalida! Digite um numero de 0 a 3.\n");
-                pausar();
+            default: printf("\n[ALERTA] Opcao invalida! Digite um numero de 0 a 3.\n");
         }
     } while (opcaoPrincipal != 0);
     return 0;

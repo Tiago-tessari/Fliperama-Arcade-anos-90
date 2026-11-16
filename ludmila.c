@@ -9,15 +9,20 @@
 struct Maquina catalogoMaquinas[MAX];
 int totalMaquinas = 0;
 
-// ---------------------------- ARQUIVO CSV ----------------------------------
+// ============================================================================
+// ARQUIVO CSV DAS MAQUINAS
+// Formato de cada linha:  id;nomeJogo;fichasPorPartida;precoFicha;ativa
+// ============================================================================
 
-// Formato de cada linha: id;nomeJogo;fichasPorPartida;precoFicha;ativa
+// Abre para LEITURA ("r") e copia cada linha do arquivo para o vetor.
 void carregarMaquinasCSV(void) {
     FILE *arq = fopen("maquinas.csv", "r");
-    char cabecalho[200];
+    char cabecalho[100];
     totalMaquinas = 0;
     if (arq == NULL) return;
-    if (fgets(cabecalho, sizeof(cabecalho), arq) == NULL) { fclose(arq); return; }
+    fgets(cabecalho, sizeof(cabecalho), arq);    // pula a linha de titulos
+    // %d = inteiro | %39[^;] = texto ate o ';' | %f = numero decimal
+    // O fscanf devolve quantos campos leu: 5 = linha completa.
     while (totalMaquinas < MAX &&
            fscanf(arq, "%d;%39[^;];%d;%f;%d\n",
                   &catalogoMaquinas[totalMaquinas].idMaquina,
@@ -30,9 +35,10 @@ void carregarMaquinasCSV(void) {
     fclose(arq);
 }
 
+// Abre para ESCRITA ("w"): zera o arquivo e regrava o vetor inteiro.
 void salvarMaquinasCSV(void) {
     int i;
-    FILE *arq = fopen("maquinas.csv", "w");   // "w" zera o arquivo e recria limpo
+    FILE *arq = fopen("maquinas.csv", "w");
     if (arq == NULL) {
         printf("[ERRO] Nao foi possivel gravar maquinas.csv\n");
         return;
@@ -47,8 +53,11 @@ void salvarMaquinasCSV(void) {
     fclose(arq);
 }
 
-// ------------------------------ BUSCAS -------------------------------------
+// ============================================================================
+// MODULO DE MAQUINAS
+// ============================================================================
 
+// Retorna a posicao da maquina no vetor (ou -1 se nao existir / foi removida)
 int buscarMaquinaPorId(int id) {
     int i;
     for (i = 0; i < totalMaquinas; i++) {
@@ -59,42 +68,24 @@ int buscarMaquinaPorId(int id) {
     return -1;
 }
 
-static int proximoIdMaquina(void) {
-    int i, maior = 0;
-    for (i = 0; i < totalMaquinas; i++) {
-        if (catalogoMaquinas[i].idMaquina > maior) maior = catalogoMaquinas[i].idMaquina;
-    }
-    return maior + 1;
-}
-
 static void imprimirMaquina(int pos) {
     printf("ID %d | %s | %d ficha(s)/partida | R$ %.2f/ficha\n",
            catalogoMaquinas[pos].idMaquina, catalogoMaquinas[pos].nomeJogo,
            catalogoMaquinas[pos].fichasPorPartida, catalogoMaquinas[pos].precoFicha);
 }
 
-// ------------------------------- CRUD --------------------------------------
-
 void cadastrarMaquina(void) {
-    int pos, fichas;
-    float preco;
+    int pos;
     if (totalMaquinas >= MAX) {
         printf("\n[ERRO] Limite de maquinas atingido!\n");
         return;
     }
     pos = totalMaquinas;
-    catalogoMaquinas[pos].idMaquina = proximoIdMaquina();
-    lerTexto("\nNome do jogo: ", catalogoMaquinas[pos].nomeJogo, 40);
-    do {
-        fichas = lerInt("Fichas por partida: ");
-        if (fichas <= 0) printf("[ERRO] Precisa ser maior que zero.\n");
-    } while (fichas <= 0);
-    do {
-        preco = lerFloat("Preco de cada ficha (R$): ");
-        if (preco <= 0) printf("[ERRO] Precisa ser maior que zero.\n");
-    } while (preco <= 0);
-    catalogoMaquinas[pos].fichasPorPartida = fichas;
-    catalogoMaquinas[pos].precoFicha = preco;
+    catalogoMaquinas[pos].idMaquina = pos + 1;
+    printf("\nNome do jogo (sem espacos, use _): ");
+    scanf("%39s", catalogoMaquinas[pos].nomeJogo);
+    catalogoMaquinas[pos].fichasPorPartida = lerInt("Fichas por partida: ");
+    catalogoMaquinas[pos].precoFicha = lerFloat("Preco de cada ficha (R$): ");
     catalogoMaquinas[pos].ativa = 1;
     totalMaquinas++;
     salvarMaquinasCSV();
@@ -121,9 +112,11 @@ void listarOuBuscarMaquina(void) {
         if (pos == -1) printf("\n[ERRO] Maquina nao encontrada.\n");
         else imprimirMaquina(pos);
     } else if (modo == 3) {
-        lerTexto("Parte do nome do jogo: ", termo, 40);
+        printf("Parte do nome do jogo (respeite maiusculas): ");
+        scanf("%39s", termo);
         for (i = 0; i < totalMaquinas; i++) {
-            if (catalogoMaquinas[i].ativa == 1 && contemTexto(catalogoMaquinas[i].nomeJogo, termo)) {
+            // strstr procura "termo" dentro do nome; devolve NULL se nao achar
+            if (catalogoMaquinas[i].ativa == 1 && strstr(catalogoMaquinas[i].nomeJogo, termo) != NULL) {
                 imprimirMaquina(i);
                 achou = 1;
             }
@@ -135,29 +128,20 @@ void listarOuBuscarMaquina(void) {
 }
 
 void editarMaquina(void) {
-    int id, pos, fichas;
-    float preco;
+    int id, pos;
     id = lerInt("\nID da maquina a editar: ");
     pos = buscarMaquinaPorId(id);
     if (pos == -1) {
         printf("\n[ERRO] Maquina nao encontrada.\n");
         return;
     }
-    do {
-        fichas = lerInt("Novas fichas por partida: ");
-        if (fichas <= 0) printf("[ERRO] Precisa ser maior que zero.\n");
-    } while (fichas <= 0);
-    do {
-        preco = lerFloat("Novo preco da ficha (R$): ");
-        if (preco <= 0) printf("[ERRO] Precisa ser maior que zero.\n");
-    } while (preco <= 0);
-    catalogoMaquinas[pos].fichasPorPartida = fichas;
-    catalogoMaquinas[pos].precoFicha = preco;
+    catalogoMaquinas[pos].fichasPorPartida = lerInt("Novas fichas por partida: ");
+    catalogoMaquinas[pos].precoFicha = lerFloat("Novo preco da ficha (R$): ");
     salvarMaquinasCSV();
     printf("\nMaquina atualizada!\n");
 }
 
-// Remocao logica (ativa = 0): preserva o historico das partidas antigas.
+// Remocao logica: ativa = 0 (o registro fica no CSV para nao quebrar as partidas antigas)
 void removerMaquina(void) {
     int id, pos;
     id = lerInt("\nID da maquina a remover: ");
@@ -171,9 +155,7 @@ void removerMaquina(void) {
     printf("\nMaquina removida (fora de operacao).\n");
 }
 
-// ----------------------------- RELATORIOS ----------------------------------
-
-// Cruza dados: conta quantas partidas validas cada maquina teve
+// RELATORIO que cruza dados: conta quantas partidas validas cada maquina teve
 void relatorioJogoMaisJogado(void) {
     int i, j, contagem, melhor = -1, maiorContagem = 0;
     for (i = 0; i < totalMaquinas; i++) {
@@ -199,54 +181,15 @@ void relatorioJogoMaisJogado(void) {
     }
 }
 
-// Ranking de faturamento por maquina com BUBBLE SORT (maior receita primeiro).
-void rankingMaquinasPorReceita(void) {
-    int indices[MAX], n = 0, i, j, aux;
-    float receita[MAX] = {0};     // receita[i] = total arrecadado pela maquina na posicao i
-    for (i = 0; i < totalMaquinas; i++) {
-        if (catalogoMaquinas[i].ativa == 1) {
-            indices[n++] = i;
-            for (j = 0; j < totalPartidas; j++) {
-                if (historicoPartidas[j].ativa == 1 &&
-                    historicoPartidas[j].idMaquina == catalogoMaquinas[i].idMaquina) {
-                    receita[i] += historicoPartidas[j].valorGasto;
-                }
-            }
-        }
-    }
-    if (n == 0) {
-        printf("\nNenhuma maquina cadastrada.\n");
-        return;
-    }
-    for (i = 0; i < n - 1; i++) {
-        for (j = 0; j < n - 1 - i; j++) {
-            if (receita[indices[j]] < receita[indices[j + 1]]) {
-                aux = indices[j];
-                indices[j] = indices[j + 1];
-                indices[j + 1] = aux;
-            }
-        }
-    }
-    printf("\n=== RANKING: MAQUINAS QUE MAIS FATURAM ===\n");
-    for (i = 0; i < n; i++) {
-        printf("%2do | %-24s | R$ %.2f\n", i + 1,
-               catalogoMaquinas[indices[i]].nomeJogo, receita[indices[i]]);
-    }
-}
-
-// ------------------------------- MENU --------------------------------------
-
 void moduloMaquinas(void) {
     int opcao;
     do {
-        limparTela();
-        printf("--- [MODULO 2: MAQUINAS / JOGOS (Ludmila)] ---\n");
+        printf("\n--- [MODULO 2: MAQUINAS / JOGOS (Ludmila)] ---\n");
         printf("1. Cadastrar Nova Maquina\n");
         printf("2. Listar / Buscar Maquinas\n");
         printf("3. Editar Fichas por Partida / Preco\n");
         printf("4. Remover Maquina\n");
         printf("5. [RELATORIO] Jogo Mais Jogado\n");
-        printf("6. [RELATORIO] Ranking de Faturamento (Bubble Sort)\n");
         printf("0. Voltar ao Menu Principal\n");
         opcao = lerInt("Escolha uma acao: ");
         switch (opcao) {
@@ -255,10 +198,8 @@ void moduloMaquinas(void) {
             case 3: editarMaquina(); break;
             case 4: removerMaquina(); break;
             case 5: relatorioJogoMaisJogado(); break;
-            case 6: rankingMaquinasPorReceita(); break;
-            case 0: break;
+            case 0: printf("\nRetornando ao menu principal...\n"); break;
             default: printf("\n[ERRO] Opcao invalida no Modulo de Maquinas!\n");
         }
-        if (opcao != 0) pausar();
     } while (opcao != 0);
 }

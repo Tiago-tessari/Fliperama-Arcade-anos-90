@@ -9,49 +9,56 @@
 struct Partida historicoPartidas[MAX];
 int totalPartidas = 0;
 
-// ---------------------------- ARQUIVO CSV ----------------------------------
+// ============================================================================
+// ARQUIVO CSV DAS PARTIDAS
+// Formato de cada linha:  id;idJogador;idMaquina;pontuacao;valor;data;ativa
+// ============================================================================
 
-// Formato: id;idJogador;idMaquina;pontuacao;fichas;valor;data;ativa
+// Abre para LEITURA ("r") e copia cada linha do arquivo para o vetor.
 void carregarPartidasCSV(void) {
     FILE *arq = fopen("partidas.csv", "r");
-    char cabecalho[200];
+    char cabecalho[100];
     totalPartidas = 0;
     if (arq == NULL) return;
-    if (fgets(cabecalho, sizeof(cabecalho), arq) == NULL) { fclose(arq); return; }
+    fgets(cabecalho, sizeof(cabecalho), arq);    // pula a linha de titulos
+    // %d = inteiro | %f = decimal | %10[^;] = texto de ate 10 letras ate o ';'
+    // O fscanf devolve quantos campos leu: 7 = linha completa.
     while (totalPartidas < MAX &&
-           fscanf(arq, "%d;%d;%d;%d;%d;%f;%10[^;];%d\n",
+           fscanf(arq, "%d;%d;%d;%d;%f;%10[^;];%d\n",
                   &historicoPartidas[totalPartidas].idPartida,
                   &historicoPartidas[totalPartidas].idJogador,
                   &historicoPartidas[totalPartidas].idMaquina,
                   &historicoPartidas[totalPartidas].pontuacao,
-                  &historicoPartidas[totalPartidas].fichasGastas,
                   &historicoPartidas[totalPartidas].valorGasto,
                   historicoPartidas[totalPartidas].data,
-                  &historicoPartidas[totalPartidas].ativa) == 8) {
+                  &historicoPartidas[totalPartidas].ativa) == 7) {
         totalPartidas++;
     }
     fclose(arq);
 }
 
+// Abre para ESCRITA ("w"): zera o arquivo e regrava o vetor inteiro.
 void salvarPartidasCSV(void) {
     int i;
-    FILE *arq = fopen("partidas.csv", "w");   // "w" zera o arquivo e recria limpo
+    FILE *arq = fopen("partidas.csv", "w");
     if (arq == NULL) {
         printf("[ERRO] Nao foi possivel gravar partidas.csv\n");
         return;
     }
-    fprintf(arq, "id;idJogador;idMaquina;pontuacao;fichas;valor;data;ativa\n");
+    fprintf(arq, "id;idJogador;idMaquina;pontuacao;valor;data;ativa\n");
     for (i = 0; i < totalPartidas; i++) {
-        fprintf(arq, "%d;%d;%d;%d;%d;%.2f;%s;%d\n",
+        fprintf(arq, "%d;%d;%d;%d;%.2f;%s;%d\n",
                 historicoPartidas[i].idPartida, historicoPartidas[i].idJogador,
                 historicoPartidas[i].idMaquina, historicoPartidas[i].pontuacao,
-                historicoPartidas[i].fichasGastas, historicoPartidas[i].valorGasto,
-                historicoPartidas[i].data, historicoPartidas[i].ativa);
+                historicoPartidas[i].valorGasto, historicoPartidas[i].data,
+                historicoPartidas[i].ativa);
     }
     fclose(arq);
 }
 
-// ------------------------------ BUSCAS -------------------------------------
+// ============================================================================
+// MODULO DE PARTIDAS
+// ============================================================================
 
 static int buscarPartidaPorId(int id) {
     int i;
@@ -63,38 +70,22 @@ static int buscarPartidaPorId(int id) {
     return -1;
 }
 
-static int proximoIdPartida(void) {
-    int i, maior = 0;
-    for (i = 0; i < totalPartidas; i++) {
-        if (historicoPartidas[i].idPartida > maior) maior = historicoPartidas[i].idPartida;
-    }
-    return maior + 1;
-}
-
-// Formato simples: 10 caracteres com '/' nas posicoes 2 e 5 (dd/mm/aaaa)
-static int dataValida(const char *d) {
-    return strlen(d) == 10 && d[2] == '/' && d[5] == '/';
-}
-
+// Mostra a partida usando as INICIAIS do jogador e o NOME do jogo (cruzamento)
 static void imprimirPartida(int i) {
     int posJ = buscarJogadorPorId(historicoPartidas[i].idJogador);
     int posM = buscarMaquinaPorId(historicoPartidas[i].idMaquina);
-    printf("Partida %d | %s | %s | %d pts | %d ficha(s) | R$ %.2f | %s\n",
+    printf("Partida %d | %s | %s | %d pts | R$ %.2f | %s\n",
            historicoPartidas[i].idPartida,
            posJ != -1 ? listaJogadores[posJ].iniciais : "???",
            posM != -1 ? catalogoMaquinas[posM].nomeJogo : "(removida)",
-           historicoPartidas[i].pontuacao, historicoPartidas[i].fichasGastas,
-           historicoPartidas[i].valorGasto, historicoPartidas[i].data);
+           historicoPartidas[i].pontuacao, historicoPartidas[i].valorGasto,
+           historicoPartidas[i].data);
 }
 
-// ------------------------------- CRUD --------------------------------------
-
-// CRUZA Jogador + Maquina: valida os dois IDs, calcula o valor, da BAIXA nas
-// fichas do jogador e grava a pontuacao.
+// CRUZA os modulos: valida o ID do jogador (Tiago) e o ID da maquina (Ludmila)
+// e calcula o valor da partida = fichas por partida x preco da ficha.
 void registrarPartida(void) {
-    int idJ, idM, posJ, posM, custo, pos;
-    float valor;
-    char data[11];
+    int idJ, idM, posJ, posM, pos;
     if (totalPartidas >= MAX) {
         printf("\n[ERRO] Limite de partidas atingido!\n");
         return;
@@ -111,35 +102,23 @@ void registrarPartida(void) {
         printf("\n[ERRO] Maquina nao encontrada.\n");
         return;
     }
-    custo = catalogoMaquinas[posM].fichasPorPartida;
-    if (listaJogadores[posJ].fichasAcumuladas < custo) {
-        printf("\n[ERRO] Fichas insuficientes! Precisa de %d, tem %d.\n",
-               custo, listaJogadores[posJ].fichasAcumuladas);
-        return;
-    }
     pos = totalPartidas;
-    historicoPartidas[pos].idPartida = proximoIdPartida();
+    historicoPartidas[pos].idPartida = pos + 1;
     historicoPartidas[pos].idJogador = idJ;
     historicoPartidas[pos].idMaquina = idM;
     historicoPartidas[pos].pontuacao = lerInt("Pontuacao feita na partida: ");
-    do {
-        lerTexto("Data da partida (dd/mm/aaaa): ", data, 11);
-        if (!dataValida(data)) printf("[ERRO] Use o formato dd/mm/aaaa.\n");
-    } while (!dataValida(data));
-    strcpy(historicoPartidas[pos].data, data);
-    valor = custo * catalogoMaquinas[posM].precoFicha;
-    historicoPartidas[pos].fichasGastas = custo;
-    historicoPartidas[pos].valorGasto = valor;
+    printf("Data da partida (dd/mm/aaaa): ");
+    scanf("%10s", historicoPartidas[pos].data);
+    historicoPartidas[pos].valorGasto = catalogoMaquinas[posM].fichasPorPartida *
+                                        catalogoMaquinas[posM].precoFicha;
     historicoPartidas[pos].ativa = 1;
-    listaJogadores[posJ].fichasAcumuladas -= custo;   // baixa nas fichas
-    listaJogadores[posJ].gastoTotal += valor;
     totalPartidas++;
     salvarPartidasCSV();
-    salvarJogadoresCSV();       // as fichas do jogador mudaram, entao grava tambem
-    printf("\nPartida registrada! ID = %d\n", historicoPartidas[pos].idPartida);
+    printf("\nPartida registrada! ID = %d | Valor: R$ %.2f\n",
+           historicoPartidas[pos].idPartida, historicoPartidas[pos].valorGasto);
 }
 
-// Listar todas, por jogador ou buscar por parte da data (strstr)
+// Listar todas, listar de um jogador ou buscar por parte da data (strstr)
 void listarOuBuscarPartidas(void) {
     int modo, id, i, achou = 0;
     char termo[11];
@@ -161,9 +140,11 @@ void listarOuBuscarPartidas(void) {
             }
         }
     } else if (modo == 3) {
-        lerTexto("Data ou parte dela (ex: 05/11 ou /11/2026): ", termo, 11);
+        printf("Data ou parte dela (ex: 05/11 ou /11/2026): ");
+        scanf("%10s", termo);
         for (i = 0; i < totalPartidas; i++) {
-            if (historicoPartidas[i].ativa == 1 && contemTexto(historicoPartidas[i].data, termo)) {
+            // strstr procura "termo" dentro da data; devolve NULL se nao achar
+            if (historicoPartidas[i].ativa == 1 && strstr(historicoPartidas[i].data, termo) != NULL) {
                 imprimirPartida(i);
                 achou = 1;
             }
@@ -188,28 +169,21 @@ void editarPontuacao(void) {
     printf("\nPontuacao corrigida!\n");
 }
 
-// Estorno: devolve as fichas ao jogador e invalida a partida (ativa = 0)
-void estornarPartida(void) {
-    int id, pos, posJ;
-    id = lerInt("\nID da partida a estornar: ");
+// Remocao logica: ativa = 0 (a partida deixa de aparecer e de contar nos relatorios)
+void removerPartida(void) {
+    int id, pos;
+    id = lerInt("\nID da partida a remover: ");
     pos = buscarPartidaPorId(id);
     if (pos == -1) {
         printf("\n[ERRO] Partida nao encontrada.\n");
         return;
     }
-    posJ = buscarJogadorPorId(historicoPartidas[pos].idJogador);
-    if (posJ != -1) {
-        listaJogadores[posJ].fichasAcumuladas += historicoPartidas[pos].fichasGastas;
-        listaJogadores[posJ].gastoTotal -= historicoPartidas[pos].valorGasto;
-    }
     historicoPartidas[pos].ativa = 0;
     salvarPartidasCSV();
-    salvarJogadoresCSV();
-    printf("\nPartida estornada e fichas devolvidas.\n");
+    printf("\nPartida removida.\n");
 }
 
-// ----------------------------- RELATORIOS ----------------------------------
-
+// RELATORIO: maior pontuacao de uma maquina (o "high score" do fliperama)
 void relatorioHighScore(void) {
     int idM, i, melhor = -1, posJ;
     idM = lerInt("\nID da maquina: ");
@@ -233,6 +207,7 @@ void relatorioHighScore(void) {
     }
 }
 
+// RELATORIO que cruza dados: conta as partidas validas de cada jogador
 void relatorioJogadorMaisPartidas(void) {
     int i, j, contagem, melhor = -1, maiorContagem = 0;
     for (i = 0; i < totalJogadores; i++) {
@@ -257,12 +232,12 @@ void relatorioJogadorMaisPartidas(void) {
     }
 }
 
-// MATRIZ 2D: linhas = jogadores, colunas = maquinas.
+// MATRIZ 2D: cada LINHA e um jogador e cada COLUNA e uma maquina.
 // matriz[p][m] = quantas partidas o jogador da posicao p fez na maquina da posicao m.
 void relatorioMatrizJogadorMaquina(void) {
-    int matriz[MAX][MAX] = {{0}};
+    int matriz[MAX][MAX] = {{0}};     // comeca tudo zerado
     int i, j, posJ, posM;
-    char rotulo[12];
+    // 1) preenche a matriz percorrendo as partidas
     for (i = 0; i < totalPartidas; i++) {
         if (historicoPartidas[i].ativa == 1) {
             posJ = buscarJogadorPorId(historicoPartidas[i].idJogador);
@@ -270,87 +245,52 @@ void relatorioMatrizJogadorMaquina(void) {
             if (posJ != -1 && posM != -1) matriz[posJ][posM]++;
         }
     }
+    // 2) mostra: legenda das colunas, cabecalho e uma linha por jogador
     printf("\n=== MATRIZ: PARTIDAS POR JOGADOR x MAQUINA ===\n");
     for (j = 0; j < totalMaquinas; j++) {
         if (catalogoMaquinas[j].ativa == 1) {
             printf("M%d = %s\n", catalogoMaquinas[j].idMaquina, catalogoMaquinas[j].nomeJogo);
         }
     }
-    printf("\n%-6s", "");
+    printf("\n    ");
     for (j = 0; j < totalMaquinas; j++) {
-        if (catalogoMaquinas[j].ativa == 1) {
-            sprintf(rotulo, "M%d", catalogoMaquinas[j].idMaquina);
-            printf("%5s", rotulo);
-        }
+        if (catalogoMaquinas[j].ativa == 1) printf("%4d", catalogoMaquinas[j].idMaquina);
     }
-    printf("\n");
+    printf("   (numero da maquina)\n");
     for (i = 0; i < totalJogadores; i++) {
         if (listaJogadores[i].ativo == 1) {
-            printf("%-6s", listaJogadores[i].iniciais);
+            printf("%-4s", listaJogadores[i].iniciais);
             for (j = 0; j < totalMaquinas; j++) {
-                if (catalogoMaquinas[j].ativa == 1) printf("%5d", matriz[i][j]);
+                if (catalogoMaquinas[j].ativa == 1) printf("%4d", matriz[i][j]);
             }
             printf("\n");
         }
     }
 }
 
-// Top 5 maiores pontuacoes (de todas as maquinas) usando BUBBLE SORT.
-void rankingPontuacoes(void) {
-    int indices[MAX], n = 0, i, j, aux, limite;
-    for (i = 0; i < totalPartidas; i++) {
-        if (historicoPartidas[i].ativa == 1) indices[n++] = i;
-    }
-    if (n == 0) {
-        printf("\nAinda nao ha partidas registradas.\n");
-        return;
-    }
-    for (i = 0; i < n - 1; i++) {
-        for (j = 0; j < n - 1 - i; j++) {
-            if (historicoPartidas[indices[j]].pontuacao < historicoPartidas[indices[j + 1]].pontuacao) {
-                aux = indices[j];
-                indices[j] = indices[j + 1];
-                indices[j + 1] = aux;
-            }
-        }
-    }
-    limite = n < 5 ? n : 5;
-    printf("\n=== TOP %d MAIORES PONTUACOES ===\n", limite);
-    for (i = 0; i < limite; i++) {
-        printf("%do | ", i + 1);
-        imprimirPartida(indices[i]);
-    }
-}
-
-// ------------------------------- MENU --------------------------------------
-
 void moduloPartidas(void) {
     int opcao;
     do {
-        limparTela();
-        printf("--- [MODULO 3: PARTIDAS E HIGH SCORES (Paulo)] ---\n");
+        printf("\n--- [MODULO 3: PARTIDAS E HIGH SCORES (Paulo)] ---\n");
         printf("1. Registrar Nova Partida (Cruza Jogador + Maquina)\n");
         printf("2. Listar / Buscar Partidas\n");
         printf("3. Corrigir Pontuacao de Partida\n");
-        printf("4. Estornar Partida\n");
+        printf("4. Remover Partida\n");
         printf("5. [RELATORIO] High Score de uma Maquina\n");
         printf("6. [RELATORIO] Jogador com Mais Partidas\n");
         printf("7. [RELATORIO] Matriz Jogador x Maquina\n");
-        printf("8. [RELATORIO] Top 5 Pontuacoes (Bubble Sort)\n");
         printf("0. Voltar ao Menu Principal\n");
         opcao = lerInt("Escolha uma acao: ");
         switch (opcao) {
             case 1: registrarPartida(); break;
             case 2: listarOuBuscarPartidas(); break;
             case 3: editarPontuacao(); break;
-            case 4: estornarPartida(); break;
+            case 4: removerPartida(); break;
             case 5: relatorioHighScore(); break;
             case 6: relatorioJogadorMaisPartidas(); break;
             case 7: relatorioMatrizJogadorMaquina(); break;
-            case 8: rankingPontuacoes(); break;
-            case 0: break;
+            case 0: printf("\nRetornando ao menu principal...\n"); break;
             default: printf("\n[ERRO] Opcao invalida no Modulo de Partidas!\n");
         }
-        if (opcao != 0) pausar();
     } while (opcao != 0);
 }

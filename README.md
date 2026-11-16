@@ -8,8 +8,23 @@ historico de partidas com high scores. Os dados ficam salvos em arquivos `.csv`.
 
 | Integrante | Arquivos |
 |---|---|
-| Tiago Tessari | `arcade.h`, `tiago.c` (jogadores + main + funcoes de apoio), `jogadores.csv` |
+| Tiago Tessari | `arcade.h`, `tiago.c` (jogadores + main), `jogadores.csv` |
 | Ludmila Ladislau | `ludmila.c` (maquinas), `maquinas.csv` |
 | Paulo | `paulo.c` (partidas), `partidas.csv` |
 
+## Como compilar e executar
 
+Rode dentro da pasta (os `.csv` precisam ficar ao lado do executavel):
+
+```
+gcc -Wall -Wextra tiago.c ludmila.c paulo.c -o arcade
+./arcade        (no Windows: arcade.exe)
+```
+
+## O que o sistema faz
+
+- Le os 3 arquivos `.csv` ao abrir e regrava apos cadastrar, editar ou remover.
+- Cadastrar, Listar, Buscar (`strstr`), Editar e Remover em funcoes separadas.
+- Cruzamento: a partida valida o jogador e a maquina e calcula o valor.
+- Relatorios: mais fichas, jogo mais jogado, high score, jogador com mais partidas.
+- Matriz 2D: partidas por jogador x maquina.
