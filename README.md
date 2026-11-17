@@ -12,15 +12,6 @@ historico de partidas com high scores. Os dados ficam salvos em arquivos `.csv`.
 | Ludmila Ladislau | `ludmila.c` (maquinas), `maquinas.csv` |
 | Paulo | `paulo.c` (partidas), `partidas.csv` |
 
-## Como compilar e executar
-
-Rode dentro da pasta (os `.csv` precisam ficar ao lado do executavel):
-
-```
-gcc -Wall -Wextra tiago.c ludmila.c paulo.c -o arcade
-./arcade        (no Windows: arcade.exe)
-```
-
 ## O que o sistema faz
 
 - Le os 3 arquivos `.csv` ao abrir e regrava apos cadastrar, editar ou remover.
