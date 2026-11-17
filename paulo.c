@@ -1,6 +1,6 @@
 // ============================================================================
 // paulo.c - Modulo 3: PARTIDAS, HIGH SCORES E RELATORIOS
-// Autor: Paulo (Sobrenome e RGM: ________)
+// Autor: Paulo Marques RGM: 47828439
 // ============================================================================
 #include <stdio.h>
 #include <string.h>
